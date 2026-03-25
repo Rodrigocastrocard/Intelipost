@@ -832,7 +832,7 @@ def pagina_atualizar_form():
 # ================== MAIN ==================
 
 def main():
-    st.set_page_config(page_title="Gerenciador de Pudo", layout="wide")
+    st.set_page_config(page_title="Gerenciador de loja", layout="wide")
 
     st.title("Gerenciador de Loja")
 
