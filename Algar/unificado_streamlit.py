@@ -18,49 +18,7 @@ st.set_page_config(
     layout="wide",
 )
 
-CONFIG_FILE_INTELIPOST = "config.json"
-CONFIG_FILE_AUTH = "auth.json"
-
-
-# ===================== FUNÇÕES INTELIPOST (CONFIG) =====================
-
-def load_config_intelipost():
-    if os.path.exists(CONFIG_FILE_INTELIPOST):
-        with open(CONFIG_FILE_INTELIPOST, "r", encoding="utf-8") as f:
-            try:
-                data = json.load(f)
-            except json.JSONDecodeError:
-                return {}
-        api_key_b64 = data.get("ApiKey")
-        if api_key_b64:
-            try:
-                decoded = base64.b64decode(api_key_b64.encode("utf-8")).decode("utf-8")
-                data["ApiKey"] = decoded
-            except Exception:
-                pass
-        return data
-    return {}
-
-
-def save_config_intelipost(config):
-    data = config.copy()
-    api_key = data.get("ApiKey")
-    if api_key:
-        encoded = base64.b64encode(api_key.encode("utf-8")).decode("utf-8")
-        data["ApiKey"] = encoded
-    with open(CONFIG_FILE_INTELIPOST, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4)
-
-
-def _obter_apikey_intelipost(api_key_input: str):
-    api_key_display = api_key_input.strip()
-    if api_key_display.startswith("********"):
-        config = load_config_intelipost()
-        api_key = config.get("ApiKey", "").strip()
-    else:
-        api_key = api_key_display.strip()
-    return api_key if api_key else None
-
+# ===================== FUNÇÕES INTELIPOST (AUXILIARES) =====================
 
 def _montar_pedidos_do_df(df: pd.DataFrame):
     if "Pedido" not in df.columns:
@@ -240,29 +198,6 @@ def json_serial(obj):
     raise TypeError(f"Objeto {type(obj).__name__} não serializável")
 
 
-def carregar_config_auth():
-    if not os.path.exists(CONFIG_FILE_AUTH):
-        return None
-    try:
-        with open(CONFIG_FILE_AUTH, 'r', encoding='utf-8') as f:
-            config = json.load(f)
-            return config.get('api-key')
-    except:
-        return None
-
-
-def salvar_config_auth(api_key):
-    data = {'api-key': api_key}
-    if os.path.exists(CONFIG_FILE_AUTH):
-        try:
-            with open(CONFIG_FILE_AUTH, 'r', encoding='utf-8') as f:
-                data.update(json.load(f))
-        except:
-            pass
-    with open(CONFIG_FILE_AUTH, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-
-
 def set_nested_value(d, path, value):
     for i, key_part in enumerate(path):
         try:
@@ -405,13 +340,16 @@ def enviar_requisicoes_planilha(api_key, requisicoes):
                 st.write(e)
 
 
-# ===================== INTERFACE STREAMLIT =====================
+# ===================== INTERFACE STREAMLIT / API KEYS EM SESSÃO =====================
 
 def main():
     st.title("🚚 Manager Pro - Web")
 
-    config_intelipost = load_config_intelipost()
-    api_key_auth_salva = carregar_config_auth()
+    # Inicializar chaves em session_state
+    if "api_key_intelipost" not in st.session_state:
+        st.session_state.api_key_intelipost = ""
+    if "api_key_planilha" not in st.session_state:
+        st.session_state.api_key_planilha = ""
 
     tab1, tab2 = st.tabs(["⚡ Operações Rápidas CSV", "📊 Importador Avançado Excel"])
 
@@ -419,20 +357,16 @@ def main():
     with tab1:
         st.subheader("⚡ Operações Rápidas CSV (5 Funções)")
 
-        # ApiKey Intelipost
-        col1, col2 = st.columns([3, 1])
+        # ApiKey Intelipost (apenas na sessão)
+        col1, _ = st.columns([3, 1])
         with col1:
-            if config_intelipost.get("ApiKey"):
-                default_apikey = "******** (oculta)"
-            else:
-                default_apikey = ""
-            api_key_ip = st.text_input("🔑 ApiKey Intelipost", value=default_apikey, type="password")
-        with col2:
-            if st.button("💾 Salvar ApiKey"):
-                real_key = api_key_ip.strip()
-                if real_key and not real_key.startswith("********"):
-                    save_config_intelipost({"ApiKey": real_key})
-                    st.success("ApiKey salva com sucesso!")
+            api_key_ip = st.text_input(
+                "🔑 ApiKey Intelipost (sessão)",
+                value=st.session_state.api_key_intelipost,
+                type="password",
+            )
+        # Atualiza sessão sempre que o usuário alterar
+        st.session_state.api_key_intelipost = api_key_ip.strip()
 
         uploaded_csv = st.file_uploader("📄 Arquivo CSV", type=["csv"])
         if uploaded_csv is not None:
@@ -451,7 +385,7 @@ def main():
         col_a, col_b, col_c = st.columns(3)
         col_d, col_e, _ = st.columns(3)
 
-        api_key_resolvida = _obter_apikey_intelipost(api_key_ip)
+        api_key_resolvida = st.session_state.api_key_intelipost
 
         with col_a:
             if st.button("✅ Pronto para Envio") and df_csv is not None:
@@ -492,31 +426,26 @@ def main():
     with tab2:
         st.subheader("📊 Importador Avançado Excel")
 
-        col1, col2 = st.columns([3, 1])
+        col1, _ = st.columns([3, 1])
         with col1:
-            if api_key_auth_salva:
-                default_auth = api_key_auth_salva
-            else:
-                default_auth = ""
-            api_key_auth = st.text_input("🔑 ApiKey Planilha", value=default_auth, type="password")
-        with col2:
-            if st.button("💾 Salvar ApiKey Planilha"):
-                if api_key_auth.strip():
-                    salvar_config_auth(api_key_auth.strip())
-                    st.success("ApiKey da planilha salva com sucesso!")
+            api_key_auth = st.text_input(
+                "🔑 ApiKey Planilha (sessão)",
+                value=st.session_state.api_key_planilha,
+                type="password",
+            )
+        st.session_state.api_key_planilha = api_key_auth.strip()
 
         uploaded_excel = st.file_uploader("📈 Planilha Excel", type=["xlsx", "xls"])
         if uploaded_excel is not None:
             st.info("A planilha será processada com header na linha 3 (header=2).")
 
         if st.button("🚀 IMPORTAR PEDIDOS"):
-            if not api_key_auth.strip():
+            if not st.session_state.api_key_planilha:
                 st.warning("❌ Informe a ApiKey da planilha!")
             elif uploaded_excel is None:
                 st.error("❌ Selecione um arquivo Excel válido!")
             else:
                 try:
-                    # salvar temporário para reutilizar a função existente
                     temp_name = "upload_temp.xlsx"
                     with open(temp_name, "wb") as f:
                         f.write(uploaded_excel.getbuffer())
@@ -525,7 +454,7 @@ def main():
                     if not requisicoes:
                         st.info("Nenhuma requisição gerada!")
                     else:
-                        enviar_requisicoes_planilha(api_key_auth.strip(), requisicoes)
+                        enviar_requisicoes_planilha(st.session_state.api_key_planilha, requisicoes)
                         st.success("✅ Importação concluída!")
 
                     os.remove(temp_name)
