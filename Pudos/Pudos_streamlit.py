@@ -1,37 +1,10 @@
 import streamlit as st
 import pandas as pd
-import configparser
 import os
 import requests
 import math
-import base64
+import base64  # ainda usado se quiser mascarar/mostrar, mas opcional
 from io import StringIO
-
-CONFIG_FILE = "config.ini"
-
-# ================== CONFIG / API KEY ==================
-
-def get_apikey():
-    config = configparser.ConfigParser()
-    if os.path.exists(CONFIG_FILE):
-        config.read(CONFIG_FILE)
-        encoded = config.get("API", "KEY", fallback=None)
-        if not encoded:
-            return None
-        try:
-            return base64.b64decode(encoded.encode("utf-8")).decode("utf-8")
-        except Exception:
-            return encoded
-    return None
-
-
-def set_apikey(apikey):
-    encoded = base64.b64encode(apikey.encode("utf-8")).decode("utf-8")
-    config = configparser.ConfigParser()
-    config["API"] = {"KEY": encoded}
-    with open(CONFIG_FILE, "w") as configfile:
-        config.write(configfile)
-
 
 # ================== CHAMADAS API ==================
 
@@ -312,27 +285,36 @@ def montar_json_formulario_streamlit(form_vals):
     return pudo
 
 
-# ================== PÁGINAS STREAMLIT ==================
+# ================== HELPER APIKEY (SESSION) ==================
+
+def get_apikey_from_session():
+    return st.session_state.get("apikey")
+
 
 def pagina_config():
-    st.header("Configuração de API Key")
-    apikey_atual = get_apikey()
-    if apikey_atual:
-        st.success("API Key já configurada (valor oculto).")
+    st.header("Configuração de API Key (sessão)")
+    if "apikey" not in st.session_state:
+        st.session_state.apikey = ""
+
+    if st.session_state.apikey:
+        st.success("API Key já informada para esta sessão (valor oculto).")
+
     nova = st.text_input("API Key", type="password")
-    if st.button("Salvar API Key"):
+    if st.button("Usar esta API Key nesta sessão"):
         if not nova:
             st.error("Informe um valor para a API Key.")
         else:
-            set_apikey(nova)
-            st.success("API Key salva com sucesso!")
+            st.session_state.apikey = nova
+            st.success("API Key registrada na sessão (não será salva em arquivo).")
 
+
+# ================== PÁGINAS STREAMLIT ==================
 
 def pagina_cadastro_form():
     st.header("Cadastro de Loja (Formulário)")
-    apikey = get_apikey()
+    apikey = get_apikey_from_session()
     if not apikey:
-        st.warning("API Key não configurada. Vá na aba 'Configuração'.")
+        st.warning("API Key não informada nesta sessão. Vá na aba 'Configuração'.")
         return
 
     with st.form("form_cadastro"):
@@ -446,9 +428,9 @@ def pagina_cadastro_form():
 
 def pagina_cadastro_planilha():
     st.header("Cadastro de Lojas via Planilha Excel")
-    apikey = get_apikey()
+    apikey = get_apikey_from_session()
     if not apikey:
-        st.warning("API Key não configurada. Vá na aba 'Configuração'.")
+        st.warning("API Key não informada nesta sessão. Vá na aba 'Configuração'.")
         return
 
     uploaded_file = st.file_uploader("Selecione a planilha (.xlsx / .xls)", type=["xlsx", "xls"])
@@ -504,9 +486,9 @@ def pagina_cadastro_planilha():
 
 def pagina_consulta():
     st.header("Consulta de Lojas")
-    apikey = get_apikey()
+    apikey = get_apikey_from_session()
     if not apikey:
-        st.warning("API Key não configurada. Vá na aba 'Configuração'.")
+        st.warning("API Key não informada nesta sessão. Vá na aba 'Configuração'.")
         return
 
     aba = st.radio("Tipo de consulta", ["Todas as lojas", "Por external_id"])
@@ -674,9 +656,9 @@ def pagina_consulta():
 
 def pagina_ativar_inativar():
     st.header("Ativar / Desativar Loja")
-    apikey = get_apikey()
+    apikey = get_apikey_from_session()
     if not apikey:
-        st.warning("API Key não configurada. Vá na aba 'Configuração'.")
+        st.warning("API Key não informada nesta sessão. Vá na aba 'Configuração'.")
         return
 
     external_id = st.text_input("External_id da loja")
@@ -706,9 +688,9 @@ def pagina_ativar_inativar():
 
 def pagina_atualizar_form():
     st.header("Atualizar Cadastro de Loja (Formulário)")
-    apikey = get_apikey()
+    apikey = get_apikey_from_session()
     if not apikey:
-        st.warning("API Key não configurada. Vá na aba 'Configuração'.")
+        st.warning("API Key não informada nesta sessão. Vá na aba 'Configuração'.")
         return
 
     # External_ID que será usado na URL do PUT
@@ -832,7 +814,7 @@ def pagina_atualizar_form():
 # ================== MAIN ==================
 
 def main():
-    st.set_page_config(page_title="Gerenciador de loja", layout="wide")
+    st.set_page_config(page_title="Gerenciador de Loja", layout="wide")
 
     st.title("Gerenciador de Loja")
 
