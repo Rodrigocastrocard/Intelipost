@@ -814,9 +814,9 @@ def pagina_atualizar_form():
 # ================== MAIN ==================
 
 def main():
-    st.set_page_config(page_title="Gerenciador de Loja", layout="wide")
+    st.set_page_config(page_title="Gerenciador de Lojas", layout="wide")
 
-    st.title("Gerenciador de Loja")
+    st.title("Gerenciador de Lojas")
 
     menu = st.sidebar.radio(
         "Navegação",
