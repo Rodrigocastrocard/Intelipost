@@ -834,7 +834,7 @@ def pagina_atualizar_form():
 def main():
     st.set_page_config(page_title="Gerenciador de Pudo", layout="wide")
 
-    st.title("Gerenciador de Pudo - Streamlit")
+    st.title("Gerenciador de Loja")
 
     menu = st.sidebar.radio(
         "Navegação",
