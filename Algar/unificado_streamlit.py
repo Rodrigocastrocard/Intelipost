@@ -27,7 +27,8 @@ def _montar_pedidos_do_df(df: pd.DataFrame):
     pedidos = []
     now_str = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
     for pedido in df["Pedido"].dropna():
-        pedidos.append({"order_number": str(pedido), "event_date": now_str})
+        # Garantir string com zeros à esquerda preservados
+        pedidos.append({"order_number": str(pedido).strip(), "event_date": now_str})
     return pedidos if pedidos else None
 
 
@@ -228,6 +229,7 @@ def set_nested_value(d, path, value):
 
 
 def processar_planilha(nome_arquivo):
+    # Mantém tudo como string para preservar zeros à esquerda
     df = pd.read_excel(nome_arquivo, header=2, engine='openpyxl', dtype=str)
     df.fillna('', inplace=True)
 
@@ -371,7 +373,13 @@ def main():
         uploaded_csv = st.file_uploader("📄 Arquivo CSV", type=["csv"])
         if uploaded_csv is not None:
             try:
-                df_csv = pd.read_csv(uploaded_csv, sep=None, engine="python")
+                # Força leitura como texto para preservar zeros à esquerda
+                df_csv = pd.read_csv(
+                    uploaded_csv,
+                    sep=None,
+                    engine="python",
+                    dtype=str
+                )
                 st.write("Pré-visualização do CSV:")
                 st.dataframe(df_csv.head())
             except Exception as e:
